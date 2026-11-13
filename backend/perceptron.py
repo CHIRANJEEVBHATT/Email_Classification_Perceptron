@@ -18,7 +18,8 @@ class Perceptron:
             acc = float((s.predict(X) == t).mean()); hist.append(acc)
             if acc > best[0]: best = (acc, s.w.copy(), s.b)    # "pocket" variant: keep best weights
             if acc == 1.0: break
-        s.w, s.b = best[1], best[2]
+        if best[1] is not None:
+            s.w, s.b = best[1], best[2]
         return hist
 
 def metrics(t, p):

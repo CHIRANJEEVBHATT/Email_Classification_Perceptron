@@ -22,19 +22,22 @@ def info(): return jsonify(names=NAMES, w=M.w.tolist(), b=float(M.b), hist=HIST,
 @app.post("/api/train")
 def retrain():
     global M, HIST
-    d = request.json; LR["lr"] = float(d.get("lr", .1))
+    d = request.get_json(silent=True) or {}
+    LR["lr"] = float(d.get("lr", .1))
     M, HIST = train(LR["lr"], int(d.get("epochs", 30)))
     return info()
 
 @app.post("/api/classify")
 def classify():
-    d = request.json; x = extract(d.get("text", ""), d.get("sender", ""))
+    d = request.get_json(silent=True) or {}
+    x = extract(d.get("text", ""), d.get("sender", ""))
     z = float(M.z(x)); return jsonify(x=x.tolist(), z=z, spam=bool(z >= 0), contrib=(M.w * x).tolist())
 
 @app.post("/api/evade")
 def evade():
     """Adversarial spammer: greedily nudge features in the 'legit' direction until the filter flips."""
-    x = np.array(request.json["x"], float); path = []
+    d = request.get_json(silent=True) or {}
+    x = np.array(d.get("x", [0, 0, 0, 0, 0]), float); path = []
     for _ in range(40):
         if M.z(x) < 0: break
         room = np.where(M.w > 0, x, 1 - x) * np.abs(M.w)
@@ -80,4 +83,7 @@ def insights():
     return jsonify(out)
 
 if __name__ == "__main__":
-    print("Open http://127.0.0.1:5000"); app.run(port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    host = os.environ.get("HOST", "127.0.0.1")
+    print(f"Open http://{host}:{port}")
+    app.run(host=host, port=port, debug=False)

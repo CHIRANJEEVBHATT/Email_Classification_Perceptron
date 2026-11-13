@@ -1,5 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Perceptron Glass Box — Email Spam Classifier</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📧</text></svg>">
 <style>
 :root{--bg:#0b1020;--card:rgba(255,255,255,.06);--bd:rgba(255,255,255,.12);--tx:#e8ecf8;--mu:#8a94b8;--sp:#ff5c7a;--ok:#2ee6a6;--ac:#7c8cff}
 *{box-sizing:border-box}body{margin:0;font:14px/1.5 system-ui,Segoe UI,sans-serif;color:var(--tx);background:radial-gradient(circle at 15% 0,#1d2a66 0,transparent 45%),radial-gradient(circle at 90% 20%,#4a1a58 0,transparent 40%),var(--bg);min-height:100vh}
@@ -96,7 +97,7 @@ error = t − y = ${s.e}
 Rule:  w_new = w_old + η·(t−y)·x     (η = ${lr})
 w_new = [${f(s.wa[0],3)}, ${f(s.wa[1],3)}]
 b_new = b_old + η·(t−y) = ${f(s.ba,3)}`+(s.e==0?'\n\nCorrect → no change.':'\n\nMisclassified → weights moved toward the correct side.')}
-$('#nx').onclick=()=>{let k=K+1;while(k<TR.steps.length&&TR.steps[k].e==0)k++;if(k>=TR.steps.length){$('#wu').textContent+='\n\nNo more updates in this trace.';return}K=k;drawLab();worked()};
+$('#nx').onclick=()=>{let k=K+1;while(k<TR.steps.length&&TR.steps[k].e==0)k++;if(k>=TR.steps.length){$('#wu').textContent+='\n\nNo more updates in this trace.';if(timer){clearInterval(timer);timer=0;$('#pl').textContent='▶ Auto-play';}return}K=k;drawLab();worked()};
 $('#pl').onclick=()=>{if(timer){clearInterval(timer);timer=0;$('#pl').textContent='▶ Auto-play';return}$('#pl').textContent='⏸ Pause';timer=setInterval(()=>{$('#nx').click()},900)};
 $('#rs').onclick=()=>{K=-1;drawLab();$('#wu').textContent='Press “Next weight update”.'};
 $('#lr').oninput=()=>{$('#lrv').textContent=f($('#lr').value)};$('#lr').onchange=loadTrace;
@@ -105,7 +106,7 @@ function line(c,arr,col,lo,hi){const g=c.getContext('2d'),W=c.width,H=c.height;g
 function curve(){const c=$('#cc'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);const lo=Math.min(...INFO.hist)-.02;line(c,INFO.hist,'#7c8cff',lo,1);g.fillStyle='#8a94b8';g.fillText('best: '+f(Math.max(...INFO.hist)*100,1)+'%',24,16)}
 
 /* ---------- Insights ---------- */
-function bars(el,labels,vals,fmt,sgn){const m=Math.max(...vals.map(Math.abs));$(el).innerHTML=labels.map((l,i)=>`<div class="bar"><span>${l}</span><i style="width:${Math.abs(vals[i])/m*55}%;background:${sgn&&vals[i]<0?'#2ee6a6':'#7c8cff'}"></i><span style="width:auto">${fmt(vals[i])}</span></div>`).join('')}
+function bars(el,labels,vals,fmt,sgn){const m=Math.max(...vals.map(Math.abs))||1;$(el).innerHTML=labels.map((l,i)=>`<div class="bar"><span>${l}</span><i style="width:${Math.abs(vals[i])/m*55}%;background:${sgn&&vals[i]<0?'#2ee6a6':'#7c8cff'}"></i><span style="width:auto">${fmt(vals[i])}</span></div>`).join('')}
 async function insights(){const d=await api('/api/insights'),t=d.test;
  $('#kpi').innerHTML=[['Accuracy',t.accuracy],['Precision',t.precision],['Recall',t.recall],['F1',t.f1]].map(([n,v])=>`<div><b>${f(v*100,1)}%</b>${n}</div>`).join('');
  $('#trn').textContent=`Accuracy = (TP+TN)/(TP+TN+FP+FN) = (${t.tp}+${t.tn})/${t.tp+t.tn+t.fp+t.fn}. Train accuracy ${f(d.train.accuracy*100,1)}% vs test ${f(t.accuracy*100,1)}%.`;
