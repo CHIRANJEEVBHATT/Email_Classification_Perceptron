@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Perceptron Glass Box — Email Spam Classifier</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0b1020;--card:rgba(255,255,255,.06);--bd:rgba(255,255,255,.12);--tx:#e8ecf8;--mu:#8a94b8;--sp:#ff5c7a;--ok:#2ee6a6;--ac:#7c8cff}
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 system-ui,Segoe UI,sans-serif;color:var(--tx);background:radial-gradient(circle at 15% 0,#1d2a66 0,transparent 45%),radial-gradient(circle at 90% 20%,#4a1a58 0,transparent 40%),var(--bg);min-height:100vh}
+header{padding:22px 32px 6px;animation:in .8s}h1{margin:0;font-size:26px;background:linear-gradient(90deg,#7c8cff,#2ee6a6);-webkit-background-clip:text;color:transparent}header p{margin:2px 0 0;color:var(--mu)}
+nav{display:flex;gap:8px;padding:12px 32px}nav button{background:var(--card);border:1px solid var(--bd);color:var(--tx);padding:9px 18px;border-radius:999px;cursor:pointer;transition:.25s}
+nav button.on,nav button:hover{background:var(--ac);border-color:var(--ac);transform:translateY(-2px)}
+main{padding:0 32px 40px}.tab{display:none;animation:in .5s}.tab.on{display:block}
+.g{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;backdrop-filter:blur(8px)}
+h3{margin:0 0 10px;font-size:15px;color:#c9d1ff}input,textarea{width:100%;background:#0006;border:1px solid var(--bd);color:var(--tx);border-radius:10px;padding:9px;font:inherit;margin-bottom:8px}
+.btn{background:var(--ac);border:0;color:#fff;padding:8px 14px;border-radius:10px;cursor:pointer;margin:0 6px 6px 0;transition:.2s}.btn:hover{transform:scale(1.05)}.btn.g2{background:#ffffff1f}.btn.red{background:var(--sp)}
+table{width:100%;border-collapse:collapse}td,th{padding:4px 6px;text-align:right;border-bottom:1px solid var(--bd)}td:first-child,th:first-child{text-align:left}
+.flow{stroke-dasharray:8 6;animation:fl 1s linear infinite}@keyframes fl{to{stroke-dashoffset:-14}}
+.pulse{animation:pl 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes pl{50%{transform:scale(1.12)}}
+@keyframes in{from{opacity:0;transform:translateY(10px)}}
+.lbl{fill:#c9d1ff;font-size:12px}.sm{fill:var(--mu);font-size:11px}canvas{width:100%;background:#0004;border-radius:12px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.kpi div{background:#0004;border-radius:12px;padding:10px;text-align:center}.kpi b{display:block;font-size:22px;color:var(--ok)}
+.bar{display:flex;align-items:center;gap:8px;margin:5px 0}.bar span:first-child{width:130px;color:var(--mu)}.bar i{display:block;height:12px;border-radius:6px;transition:width 1s}
+.cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;text-align:center}.cm div{padding:14px;border-radius:10px;background:#0004}.cm .h{background:none;color:var(--mu);padding:4px}
+.mono{font-family:Consolas,monospace;font-size:12.5px;white-space:pre-wrap;color:#cfe}.tag{padding:2px 10px;border-radius:99px;font-weight:700}
+</style></head><body>
+<header><h1>Perceptron Glass Box</h1><p>Email spam classification with a single-layer perceptron — watch it think, learn, fail and get attacked.</p></header>
+<nav id="nav"><button class="on" data-t="live">① Live Classifier</button><button data-t="lab">② Training Lab</button><button data-t="ins">③ Insights</button></nav>
+<main>
+<section class="tab on" id="live"><div class="g" style="grid-template-columns:minmax(300px,1fr) 2fr">
+ <div class="card"><h3>Compose an email</h3>
+  <input id="snd" placeholder="Sender e.g. you@domain.com"><textarea id="txt" rows="7" placeholder="Subject + body…"></textarea>
+  <button class="btn" id="go">Classify ▶</button><button class="btn red" id="ev">😈 Evade the filter</button><br>
+  <button class="btn g2" data-p="s">Spam sample</button><button class="btn g2" data-p="h">Legit sample</button>
+  <div class="mono" id="log" style="margin-top:8px;max-height:150px;overflow:auto"></div></div>
+ <div class="card"><svg id="net" viewBox="0 0 720 380" width="100%"></svg>
+  <div class="sm" style="padding:0 8px">Red edge = pushes toward SPAM (w&gt;0) · Green edge = pushes toward LEGIT (w&lt;0) · thickness = |weight| · bubble size = feature value</div></div>
+ <div class="card" style="grid-column:1/-1"><h3>The arithmetic: z = Σ wᵢxᵢ + b → step(z)</h3><table id="tbl"></table></div></div></section>
+
+<section class="tab" id="lab"><div class="g">
+ <div class="card"><h3>Learning, one update at a time <span class="sm">(x = keywords, y = sender reputation)</span></h3><canvas id="cv" width="520" height="460"></canvas>
+  <div style="margin-top:8px"><button class="btn" id="nx">Next weight update ⏭</button><button class="btn" id="pl">▶ Auto-play</button><button class="btn g2" id="rs">Reset</button></div></div>
+ <div><div class="card"><h3>Worked weight update (perceptron learning rule)</h3><div class="mono" id="wu">Press “Next weight update”.</div></div>
+  <div class="card" style="margin-top:16px"><h3>Full model training (5 features)</h3>
+   Learning rate η = <b id="lrv">0.10</b><input type="range" id="lr" min="0.01" max="1" step="0.01" value="0.1">
+   Epochs <input type="number" id="ep" value="30" min="1" max="200" style="width:90px"><button class="btn" id="rt">Retrain</button>
+   <canvas id="cc" width="520" height="190"></canvas><div class="sm">Training accuracy per epoch (pocket perceptron keeps the best weights)</div></div></div></div></section>
+
+<section class="tab" id="ins"><div class="g">
+ <div class="card"><h3>Test-set performance</h3><div class="kpi" id="kpi"></div><div class="sm" id="trn" style="margin-top:6px"></div>
+  <h3 style="margin-top:14px">Confusion matrix</h3><div class="cm" id="cm"></div></div>
+ <div class="card"><h3>Learned weights (feature importance)</h3><div id="wb"></div><h3 style="margin-top:14px">Ablation: accuracy when a feature is removed</h3><div id="ab"></div></div>
+ <div class="card"><h3>ROC curve <span id="auc" class="sm"></span></h3><canvas id="roc" width="420" height="340"></canvas><div class="sm">Sweeping the decision threshold on z trades false alarms against missed spam.</div></div>
+ <div class="card"><h3>Where a single perceptron fails: XOR</h3><canvas id="xr" width="420" height="340"></canvas><div id="xt" class="sm"></div><div id="cmp" style="margin-top:8px"></div><div id="sbk"></div></div></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms)),f=(v,d=2)=>(+v).toFixed(d);
+const api=(u,b)=>fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(r=>r.json());
+const PRE={s:['winner-claims123@cheap-offers.xyz',"CONGRATULATIONS!!! You are a WINNER! Claim your FREE cash prize now, click http://bit.ly/win-now . Limited offer, act now!!!"],
+ h:['priya@srmist.edu.in',"Hi Kanakesh, sharing the notes for tomorrow's ANN lab. Let's meet at 10 am in the library. Thanks!"]};
+let INFO,X=[0,0,0,0,0],TR,K=-1,timer;
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.tab').forEach(e=>e.classList.remove('on'));b.classList.add('on');$('#'+b.dataset.t).classList.add('on');if(b.dataset.t=='ins')insights();if(b.dataset.t=='lab')drawLab()});
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{[$('#snd').value,$('#txt').value]=PRE[b.dataset.p];classify()});
+
+function drawNet(){const{names,w,b}=INFO,z=w.reduce((a,wi,i)=>a+wi*X[i],b),spam=z>=0,Y=i=>45+i*72;let h='';
+ names.forEach((n,i)=>{const c=w[i]*X[i],col=w[i]>=0?'#ff5c7a':'#2ee6a6';
+  h+=`<line class="flow" x1="200" y1="${Y(i)}" x2="440" y2="190" stroke="${col}" stroke-width="${1+Math.abs(w[i])*5}" opacity="${.3+Math.min(.7,Math.abs(c)*1.5)}"/>
+  <circle cx="200" cy="${Y(i)}" r="${10+X[i]*14}" fill="${col}" fill-opacity=".3" stroke="${col}" style="transition:.5s"/>
+  <text x="170" y="${Y(i)+4}" text-anchor="end" class="lbl">${n}</text><text x="200" y="${Y(i)+4}" text-anchor="middle" class="lbl">${f(X[i])}</text>
+  <text x="320" y="${Y(i)+(190-Y(i))*.4-6}" class="sm">w=${f(w[i])}</text>`});
+ const oc=spam?'#ff5c7a':'#2ee6a6';
+ h+=`<circle cx="440" cy="190" r="34" fill="#7c8cff33" stroke="#7c8cff" stroke-width="2"/><text x="440" y="186" text-anchor="middle" class="lbl">Σ + b</text><text x="440" y="203" text-anchor="middle" class="lbl">z=${f(z)}</text>
+ <line class="flow" x1="474" y1="190" x2="580" y2="190" stroke="${oc}" stroke-width="3"/>
+ <circle class="pulse" cx="630" cy="190" r="44" fill="${oc}" fill-opacity=".25" stroke="${oc}" stroke-width="3"/><text x="630" y="196" text-anchor="middle" fill="${oc}" font-weight="700" font-size="16">${spam?'SPAM':'LEGIT'}</text>
+ <text x="440" y="250" text-anchor="middle" class="sm">bias b=${f(b)} · step(z≥0)</text>`;
+ $('#net').innerHTML=h;
+ $('#tbl').innerHTML='<tr><th>Feature</th><th>xᵢ</th><th>wᵢ</th><th>wᵢ·xᵢ</th></tr>'+names.map((n,i)=>`<tr><td>${n}</td><td>${f(X[i])}</td><td>${f(w[i])}</td><td style="color:${w[i]*X[i]>=0?'#ff5c7a':'#2ee6a6'}">${f(w[i]*X[i],3)}</td></tr>`).join('')+
+ `<tr><td>Bias</td><td></td><td></td><td>${f(b,3)}</td></tr><tr><td><b>z</b></td><td></td><td></td><td><b>${f(z,3)} → ${spam?'SPAM (1)':'LEGIT (0)'}</b></td></tr>`}
+async function classify(){const r=await api('/api/classify',{text:$('#txt').value,sender:$('#snd').value});X=r.x;drawNet();$('#log').textContent=`Extracted features → classified as ${r.spam?'SPAM':'LEGIT'} (z=${f(r.z)})`}
+$('#go').onclick=classify;
+$('#ev').onclick=async()=>{if(X.every(v=>v==0))await classify();const r=await api('/api/evade',{x:X}),L=$('#log');L.textContent='Spammer tweaks the email to dodge the filter…\n';
+ for(const s of r.path){X[s.j]=s.v;drawNet();L.textContent+=`• ${INFO.names[s.j]} → ${f(s.v,1)}   (z=${f(s.z)})\n`;await sleep(600)}
+ L.textContent+=r.evaded?`✔ Evaded in ${r.path.length} steps. Lesson: a linear filter can be gamed by shifting the most heavily weighted features.`:'✘ Could not evade.'};
+
+/* ---------- Training lab ---------- */
+async function loadTrace(){TR=await api('/api/trace?lr='+$('#lr').value);K=-1;drawLab()}
+function st(){return K<0?{w:[0,0],b:0}:{w:TR.steps[K].wa,b:TR.steps[K].ba}}
+function drawLab(){if(!TR)return;const c=$('#cv'),g=c.getContext('2d'),W=c.width,H=c.height,P=34,px=x=>P+x*(W-2*P),py=y=>H-P-y*(H-2*P),{w,b}=st();g.clearRect(0,0,W,H);
+ for(let i=0;i<30;i++)for(let j=0;j<30;j++){const x=i/30,y=j/30,z=w[0]*(x+.017)+w[1]*(y+.017)+b;g.fillStyle=z>=0?'rgba(255,92,122,.10)':'rgba(46,230,166,.10)';g.fillRect(px(x),py(y+1/30),(W-2*P)/30+1,(H-2*P)/30+1)}
+ g.strokeStyle='#ffffff44';g.strokeRect(P,P,W-2*P,H-2*P);g.fillStyle='#8a94b8';g.fillText('Keyword count →',W/2-40,H-8);g.fillText('Reputation ↑',4,P-10);
+ g.strokeStyle='#fff';g.lineWidth=3;g.shadowColor='#7c8cff';g.shadowBlur=12;g.beginPath();
+ if(Math.abs(w[1])>1e-9){g.moveTo(px(0),py(-(b)/w[1]));g.lineTo(px(1),py(-(w[0]+b)/w[1]))}else if(Math.abs(w[0])>1e-9){g.moveTo(px(-b/w[0]),py(0));g.lineTo(px(-b/w[0]),py(1))}g.stroke();g.shadowBlur=0;g.lineWidth=1;
+ TR.points.forEach((p,i)=>{g.fillStyle=TR.labels[i]?'#ff5c7a':'#2ee6a6';g.beginPath();g.arc(px(p[0]),py(p[1]),5,0,7);g.fill();
+  if(K>=0&&TR.steps[K].i==i){g.strokeStyle='#ffd24a';g.lineWidth=3;g.beginPath();g.arc(px(p[0]),py(p[1]),12,0,7);g.stroke();g.lineWidth=1}})}
+function worked(){const s=TR.steps[K],p=TR.points[s.i],t=TR.labels[s.i],lr=+$('#lr').value,z=s.wb[0]*p[0]+s.wb[1]*p[1]+s.bb;
+ $('#wu').textContent=`Sample: x = [${f(p[0],3)}, ${f(p[1],3)}]   true label t = ${t} (${t?'spam':'legit'})
+w_old = [${f(s.wb[0],3)}, ${f(s.wb[1],3)}],  b_old = ${f(s.bb,3)}
+z = w·x + b = ${f(z,3)}  →  predicted y = ${s.y}
+error = t − y = ${s.e}
+Rule:  w_new = w_old + η·(t−y)·x     (η = ${lr})
+w_new = [${f(s.wa[0],3)}, ${f(s.wa[1],3)}]
+b_new = b_old + η·(t−y) = ${f(s.ba,3)}`+(s.e==0?'\n\nCorrect → no change.':'\n\nMisclassified → weights moved toward the correct side.')}
+$('#nx').onclick=()=>{let k=K+1;while(k<TR.steps.length&&TR.steps[k].e==0)k++;if(k>=TR.steps.length){$('#wu').textContent+='\n\nNo more updates in this trace.';return}K=k;drawLab();worked()};
+$('#pl').onclick=()=>{if(timer){clearInterval(timer);timer=0;$('#pl').textContent='▶ Auto-play';return}$('#pl').textContent='⏸ Pause';timer=setInterval(()=>{$('#nx').click()},900)};
+$('#rs').onclick=()=>{K=-1;drawLab();$('#wu').textContent='Press “Next weight update”.'};
+$('#lr').oninput=()=>{$('#lrv').textContent=f($('#lr').value)};$('#lr').onchange=loadTrace;
+$('#rt').onclick=async()=>{INFO=await api('/api/train',{lr:+$('#lr').value,epochs:+$('#ep').value});curve();drawNet();loadTrace()};
+function line(c,arr,col,lo,hi){const g=c.getContext('2d'),W=c.width,H=c.height;g.strokeStyle=col;g.lineWidth=2.5;g.beginPath();arr.forEach((v,i)=>{const x=20+i*(W-40)/Math.max(arr.length-1,1),y=H-15-(v-lo)/(hi-lo)*(H-30);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()}
+function curve(){const c=$('#cc'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);const lo=Math.min(...INFO.hist)-.02;line(c,INFO.hist,'#7c8cff',lo,1);g.fillStyle='#8a94b8';g.fillText('best: '+f(Math.max(...INFO.hist)*100,1)+'%',24,16)}
+
+/* ---------- Insights ---------- */
+function bars(el,labels,vals,fmt,sgn){const m=Math.max(...vals.map(Math.abs));$(el).innerHTML=labels.map((l,i)=>`<div class="bar"><span>${l}</span><i style="width:${Math.abs(vals[i])/m*55}%;background:${sgn&&vals[i]<0?'#2ee6a6':'#7c8cff'}"></i><span style="width:auto">${fmt(vals[i])}</span></div>`).join('')}
+async function insights(){const d=await api('/api/insights'),t=d.test;
+ $('#kpi').innerHTML=[['Accuracy',t.accuracy],['Precision',t.precision],['Recall',t.recall],['F1',t.f1]].map(([n,v])=>`<div><b>${f(v*100,1)}%</b>${n}</div>`).join('');
+ $('#trn').textContent=`Accuracy = (TP+TN)/(TP+TN+FP+FN) = (${t.tp}+${t.tn})/${t.tp+t.tn+t.fp+t.fn}. Train accuracy ${f(d.train.accuracy*100,1)}% vs test ${f(t.accuracy*100,1)}%.`;
+ $('#cm').innerHTML=`<div class="h"></div><div class="h">Pred LEGIT</div><div class="h">Pred SPAM</div><div class="h">Actual LEGIT</div><div style="background:#2ee6a644">${t.tn}<br>TN</div><div style="background:#ff5c7a44">${t.fp}<br>FP</div><div class="h">Actual SPAM</div><div style="background:#ff5c7a44">${t.fn}<br>FN</div><div style="background:#2ee6a644">${t.tp}<br>TP</div>`;
+ bars('#wb',d.names,d.w,v=>f(v),true);bars('#ab',d.names,d.ablation,v=>f(v*100,1)+'%');
+ $('#auc').textContent='AUC = '+f(d.auc,3);const c=$('#roc'),g=c.getContext('2d');g.clearRect(0,0,420,340);g.strokeStyle='#ffffff44';g.strokeRect(30,10,380,310);g.setLineDash([4,4]);g.beginPath();g.moveTo(30,320);g.lineTo(410,10);g.stroke();g.setLineDash([]);
+ g.strokeStyle='#2ee6a6';g.lineWidth=3;g.beginPath();d.roc.forEach(([x,y],i)=>{const X=30+x*380,Y=320-y*310;i?g.lineTo(X,Y):g.moveTo(X,Y)});g.stroke();
+ const x=d.xor,xc=$('#xr'),h=xc.getContext('2d'),mp=(a,b)=>[30+(a+.5)/2*380,320-(b+.5)/2*310];h.clearRect(0,0,420,340);
+ x.X.forEach((p,i)=>{h.fillStyle=x.y[i]?'#ff5c7a':'#2ee6a6';h.beginPath();h.arc(...mp(p[0],p[1]),4,0,7);h.fill()});
+ h.strokeStyle='#fff';h.lineWidth=2;h.beginPath();if(Math.abs(x.w[1])>1e-9){h.moveTo(...mp(-.5,-(x.b+x.w[0]*-.5)/x.w[1]));h.lineTo(...mp(1.5,-(x.b+x.w[0]*1.5)/x.w[1]))}h.stroke();
+ $('#xt').textContent=`No single straight line separates XOR. Perceptron accuracy: ${f(x.pacc*100,0)}% — this is why multi-layer networks are needed (future work).`;
+ $('#cmp').innerHTML=`<b>Perceptron vs Logistic Regression (spam test set):</b> ${f(t.accuracy*100,1)}% vs ${f(d.logreg*100,1)}% — nearly equal on linearly-separable-ish data, but the perceptron is far simpler and its rule is explainable.`;
+ if(d.spambase)$('#sbk').innerHTML=`<b>UCI Spambase (57 features):</b> accuracy ${f(d.spambase.accuracy*100,1)}%, F1 ${f(d.spambase.f1*100,1)}%`}
+(async()=>{INFO=await api('/api/info');$('#lr').value=INFO.lr;$('#lrv').textContent=f(INFO.lr);drawNet();curve();loadTrace()})();
+</script></body></html>
